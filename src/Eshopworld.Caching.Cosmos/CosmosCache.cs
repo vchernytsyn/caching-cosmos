@@ -3,13 +3,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using Beatles.Caching;
+using Eshopworld.Caching.Core;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 
 namespace Eshopworld.Caching.Cosmos
 {
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <remarks>Warning: As the cosmos SDK doesnt provide sync methods, all non async methods call their async counterparts and just GetResult().</remarks>
     public class CosmosCache<T> : IDistributedCache<T>
     {
         private readonly DocumentClient _documentClient;
@@ -17,9 +22,10 @@ namespace Eshopworld.Caching.Cosmos
 
         public DocumentClient Database => _documentClient;
 
-        public CosmosCache(DocumentClient documentClient)
+        public CosmosCache(Uri documentCollectionUri, DocumentClient documentClient)
         {
-            _documentClient = documentClient;
+            _documentCollectionUri = documentCollectionUri ?? throw new ArgumentNullException(nameof(documentCollectionUri));
+            _documentClient = documentClient ?? throw new ArgumentNullException(nameof(documentClient));
         }
 
         public T Add(CacheItem<T> item) => AddAsync(item).ConfigureAwait(false).GetAwaiter().GetResult();
@@ -27,14 +33,12 @@ namespace Eshopworld.Caching.Cosmos
         {
             if (item == null) throw new ArgumentNullException(nameof(item));
 
-            var envelope = new Envelope(item.Key, item.Value.ToString());
+            var envelope = new Envelope(item.Key, Newtonsoft.Json.JsonConvert.SerializeObject(item.Value));
 
             // todo: what to do with item.Duration ??
             var docResponse = await _documentClient.UpsertDocumentAsync(_documentCollectionUri, envelope).ConfigureAwait(false);
 
-            //if (Logger.IsDebugEnabled) Logger.Debug($"Doc '{key}' saved to cosmos. Response Status:{docResponse.StatusCode}");
-
-            if (docResponse.StatusCode != HttpStatusCode.OK)
+            if (!(docResponse.StatusCode == HttpStatusCode.Created || docResponse.StatusCode == HttpStatusCode.OK))
             {
                 throw new InvalidOperationException($"Unable to save document. Status:{docResponse.StatusCode}");
             }
@@ -53,22 +57,30 @@ namespace Eshopworld.Caching.Cosmos
         public bool KeyExpire(string key, TimeSpan? expiry) => false;
         public Task<bool> KeyExpireAsync(string key, TimeSpan? expiry) => Task.FromResult(false);
 
-        public void Remove(string key) => _documentClient.DeleteDocumentAsync(key).GetAwaiter().GetResult();
-        public Task RemoveAsync(string key) => _documentClient.DeleteDocumentAsync(key);
+        public void Remove(string key) => RemoveAsync(key).GetAwaiter().GetResult();
+        public Task RemoveAsync(string key) => _documentClient.DeleteDocumentAsync(CreateDocumentURI(key));
 
         public async Task<T> GetAsync(string key) => (await GetResultAsync(key)).Value;
         public T Get(string key) => GetResult(key).Value;
 
         public CacheResult<T> GetResult(string key) => GetResultAsync(key).GetAwaiter().GetResult();
+
         public async Task<CacheResult<T>> GetResultAsync(string key)
         {
             if (key == null) throw new ArgumentNullException(nameof(key));
 
-            var uri = new Uri($"{_documentCollectionUri}/docs/{Uri.EscapeUriString(key)}", UriKind.Relative);
+            try
+            {
+                var documentResponse = await _documentClient.ReadDocumentAsync<Envelope>(CreateDocumentURI(key)).ConfigureAwait(false);
 
-            var documentResponse = await _documentClient.ReadDocumentAsync<T>(uri).ConfigureAwait(false);
-            
-            return documentResponse.StatusCode != HttpStatusCode.OK  ? CacheResult<T>.Miss() : new CacheResult<T>(true, documentResponse.Document);
+                return documentResponse.StatusCode != HttpStatusCode.OK
+                    ? CacheResult<T>.Miss()
+                    : new CacheResult<T>(true,Newtonsoft.Json.JsonConvert.DeserializeObject<T>(documentResponse.Document.Blob));
+            }
+            catch (DocumentClientException ex) when (ex.StatusCode.HasValue && ex.StatusCode.Value == HttpStatusCode.NotFound)
+            {
+                return CacheResult<T>.Miss();
+            }
         }
 
         public IEnumerable<KeyValuePair<string, T>> Get(IEnumerable<string> keys) => GetAsync(keys).ConfigureAwait(false).GetAwaiter().GetResult();
@@ -94,6 +106,8 @@ namespace Eshopworld.Caching.Cosmos
             }
         }
 
+
+        private Uri CreateDocumentURI(string key) => new Uri($"{_documentCollectionUri}/docs/{Uri.EscapeUriString(key)}", UriKind.Relative);
 
         class Envelope
         {
