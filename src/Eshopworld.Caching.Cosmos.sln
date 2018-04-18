@@ -5,7 +5,7 @@ VisualStudioVersion = 15.0.27130.2036
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Eshopworld.Caching.Cosmos", "Eshopworld.Caching.Cosmos\Eshopworld.Caching.Cosmos.csproj", "{06317D84-7181-474D-A03D-CDD47474C6FA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eshopworld.Caching.Cosmos.Tests", "Tests\Eshopworld.Caching.Cosmos.Tests\Eshopworld.Caching.Cosmos.Tests.csproj", "{EB51F7C9-BE3C-4B53-B8C2-39A97DAE95E0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eshopworld.Caching.Cosmos.Tests", "Tests\Eshopworld.Caching.Cosmos.Tests\Eshopworld.Caching.Cosmos.Tests.csproj", "{22F0B8B8-24F8-4777-8121-4C13AF739D8C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,10 +17,10 @@ Global
 		{06317D84-7181-474D-A03D-CDD47474C6FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{06317D84-7181-474D-A03D-CDD47474C6FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{06317D84-7181-474D-A03D-CDD47474C6FA}.Release|Any CPU.Build.0 = Release|Any CPU
-		{EB51F7C9-BE3C-4B53-B8C2-39A97DAE95E0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{EB51F7C9-BE3C-4B53-B8C2-39A97DAE95E0}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{EB51F7C9-BE3C-4B53-B8C2-39A97DAE95E0}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{EB51F7C9-BE3C-4B53-B8C2-39A97DAE95E0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{22F0B8B8-24F8-4777-8121-4C13AF739D8C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{22F0B8B8-24F8-4777-8121-4C13AF739D8C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{22F0B8B8-24F8-4777-8121-4C13AF739D8C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{22F0B8B8-24F8-4777-8121-4C13AF739D8C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

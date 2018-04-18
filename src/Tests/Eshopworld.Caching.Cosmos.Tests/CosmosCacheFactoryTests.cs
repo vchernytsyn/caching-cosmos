@@ -1,4 +1,5 @@
 ﻿using System;
+using Eshopworld.Tests.Core;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Xunit;
@@ -7,7 +8,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
 {
     public class CosmosCacheFactoryTests
     {
-        [Fact]
+        [Fact,IsIntegration]
         public void NewInstace_WithValidConnectionString_NoException()
         {
             // Arrange
@@ -16,7 +17,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             // Assert
         }
 
-        [Fact]
+        [Fact,IsIntegration]
         public void Create_CosmosCache_NoException()
         {
             // Arrange
@@ -30,7 +31,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             }
         }
 
-        [Fact]
+        [Fact,IsIntegration]
         public void Create_CosmosCacheMultipleTimes_NoException()
         {
             // Arrange
@@ -47,7 +48,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             }
         }
 
-        [Fact]
+        [Fact,IsIntegration]
         public void Create_WithNonExistingCollection_NewCollectionIsCreated()
         {
             var tempCollectionName = Guid.NewGuid().ToString();

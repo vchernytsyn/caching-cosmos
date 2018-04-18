@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Eshopworld.Caching.Core;
+using Eshopworld.Tests.Core;
 using Xunit;
 
 namespace Eshopworld.Caching.Cosmos.Tests
@@ -21,7 +22,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
         }
 
 
-        [Fact]
+        [Fact,IsIntegration]
         public void SetString_DoesNotThrow()
         {
             // Arrange
@@ -30,7 +31,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             // Assert
         }
 
-        [Fact]
+        [Fact,IsIntegration]
         public async Task SetAsyncString_DoesNotThrow()
         {
             // Arrange
@@ -54,7 +55,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             Assert.False(stringCache.Exists(CacheKey));
         }
 
-        [Fact]
+        [Fact,IsIntegration]
         public void GetString_ItemExistsInCache()
         {
             // Arrange
@@ -70,7 +71,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             Assert.Equal(result, cacheValue);
         }
 
-        [Fact]
+        [Fact,IsIntegration]
         public async Task GetAsyncString_ItemExistsInCache()
         {
             // Arrange
@@ -88,7 +89,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
 
 
 
-        [Fact]
+        [Fact,IsIntegration]
         public void Remove_AfterRemove_GetReturnsNull()
         {
             // Arrange
@@ -105,7 +106,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             Assert.Null(result);
         }
 
-        [Fact]
+        [Fact,IsIntegration]
         public async Task RemoveAsync_AfterRemove_GetReturnsNull()
         {
             // Arrange
@@ -124,7 +125,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
 
 
 
-        [Fact]
+        [Fact,IsIntegration]
         public void Exists_AfterAdding_ReturnsTrue()
         {
             // Arrange
@@ -138,7 +139,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             Assert.True(stringCache.Exists(CacheKey));
         }
 
-        [Fact]
+        [Fact,IsIntegration]
         public async Task ExistsAsync_AfterAdding_ReturnsTrue()
         {
             // Arrange
@@ -152,7 +153,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             Assert.True(await stringCache.ExistsAsync(CacheKey));
         }
 
-        [Fact]
+        [Fact,IsIntegration]
         public void Exists_AfterAddingAndRemoving_ReturnsFalse()
         {
             // Arrange
@@ -166,7 +167,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             Assert.False(stringCache.Exists(CacheKey));
         }
 
-        [Fact]
+        [Fact,IsIntegration]
         public async Task Exists_AfterAddingAndRemoving_GetReturnsNull()
         {
             // Arrange
@@ -217,7 +218,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
         }
 
 
-        [Fact]
+        [Fact,IsIntegration]
         public void Get_SimpleObject_ReturnedObjectIsIdentical()
         {
             // Arrange
@@ -233,7 +234,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             Assert.Equal(result, value);
         }
 
-        [Fact]
+        [Fact,IsIntegration]
         public void Get_ComplexObject_ReturnedObjectIsIdentical()
         {
             // Arrange
@@ -251,7 +252,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
         }
 
 
-        [Fact]
+        [Fact,IsIntegration]
         public void GetResult_SimpleObject_ReturnedObjectIsIdentical()
         {
             // Arrange
@@ -269,7 +270,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             Assert.Equal(result.Value, value);
         }
 
-        [Fact]
+        [Fact,IsIntegration]
         public async Task GetResultAsync_SimpleObject_ReturnedObjectIsIdentical()
         {
             // Arrange
@@ -287,7 +288,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             Assert.Equal(result.Value, value);
         }
 
-        [Fact]
+        [Fact,IsIntegration]
         public void GetResult_MissingObject_ResultDoesNotHaveValue()
         {
             // Arrange
@@ -303,7 +304,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
         }
 
 
-        [Fact]
+        [Fact,IsIntegration]
         public void Set_MultipeTasks_NoExceptions()
         {
             // Arrange
@@ -326,7 +327,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             Assert.True(loopResult.IsCompleted);
         }
 
-        [Fact]
+        [Fact,IsIntegration]
         public void Get_MultipeTasks_NoExceptions()
         {
             // Arrange
