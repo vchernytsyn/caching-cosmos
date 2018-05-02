@@ -7,6 +7,7 @@ using Eshopworld.Caching.Core;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
+using Newtonsoft.Json;
 
 namespace Eshopworld.Caching.Cosmos
 {
@@ -33,7 +34,10 @@ namespace Eshopworld.Caching.Cosmos
         {
             if (item == null) throw new ArgumentNullException(nameof(item));
 
-            var envelope = new Envelope(item.Key, Newtonsoft.Json.JsonConvert.SerializeObject(item.Value));
+            int? expiryInSec = null;
+            if (item.Duration != TimeSpan.MaxValue) expiryInSec = item.Duration.Seconds;
+
+            var envelope = new Envelope(item.Key, Newtonsoft.Json.JsonConvert.SerializeObject(item.Value), expiryInSec);
 
             // todo: what to do with item.Duration ??
             var docResponse = await _documentClient.UpsertDocumentAsync(_documentCollectionUri, envelope).ConfigureAwait(false);
@@ -114,10 +118,15 @@ namespace Eshopworld.Caching.Cosmos
             public string id { get; } // do not uppercase this, ddb requires it lower so the document id matches the preorder code
             public string Blob { get; }
 
-            public Envelope(string id, string blob)
+            // used to set expiration policy
+            [JsonProperty(PropertyName = "ttl", NullValueHandling = NullValueHandling.Ignore)]
+            public int? TimeToLive { get; set; }
+
+            public Envelope(string id, string blob, int? expiry = null)
             {
                 this.id = id;
                 this.Blob = blob;
+                TimeToLive = expiry;
             }
         }
     }
