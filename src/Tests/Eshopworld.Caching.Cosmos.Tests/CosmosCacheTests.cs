@@ -379,7 +379,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             await stringCache.AddAsync(new CacheItem<string>(CacheKey, cacheValue, TimeSpan.FromSeconds(5)));
             
             // Assert
-            Assert.False(await stringCache.ExistsAsync(CacheKey));
+            Assert.True(await stringCache.ExistsAsync(CacheKey));
         }
 
         [Fact, IsIntegration]
@@ -391,7 +391,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             await stringCache.AddAsync(new CacheItem<string>(CacheKey, cacheValue, TimeSpan.MaxValue));
 
             // Assert
-            Assert.False(await stringCache.ExistsAsync(CacheKey));
+            Assert.True(await stringCache.ExistsAsync(CacheKey));
         }
     }
 }
