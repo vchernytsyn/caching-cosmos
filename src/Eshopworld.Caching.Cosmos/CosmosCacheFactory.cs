@@ -37,9 +37,15 @@ namespace Eshopworld.Caching.Cosmos
         private Uri TryCreateCollection(string name)
         {
             // todo: need to handle partition key, size etc
-            var dc = DocumentClient.CreateDocumentCollectionIfNotExistsAsync(UriFactory.CreateDatabaseUri(_dbName), new DocumentCollection() {Id = name}, new RequestOptions() {OfferThroughput = NewCollectionDefaultDTU})
-                .GetAwaiter()
-                .GetResult();
+            var dc = DocumentClient.CreateDocumentCollectionIfNotExistsAsync(UriFactory.CreateDatabaseUri(_dbName),
+                                       new DocumentCollection()
+                                       {
+                                           Id = name,
+                                           DefaultTimeToLive = -1 //never expire by default
+                                       },
+                                       new RequestOptions() {OfferThroughput = NewCollectionDefaultDTU})
+                                   .GetAwaiter()
+                                   .GetResult();
 
             return new Uri(dc.Resource.AltLink, UriKind.Relative);
         }
