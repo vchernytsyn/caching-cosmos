@@ -353,5 +353,45 @@ namespace Eshopworld.Caching.Cosmos.Tests
             Console.WriteLine("Duration:" + stopwatch.ElapsedMilliseconds);
             Assert.True(loopResult.IsCompleted);
         }
+
+        [Fact,IsIntegration]
+        public async Task AddAsync_Set_ExpiryTimeAtDocumentLevel_ItemDoesntExistInCache()
+        {
+            // Arrange
+            var cacheValue = "Test";
+           
+            await stringCache.AddAsync(new CacheItem<string>(CacheKey, cacheValue, TimeSpan.FromSeconds(5)));
+
+            // Act
+            await Task.Delay(TimeSpan.FromSeconds(7));
+
+
+            // Assert
+            Assert.False(await stringCache.ExistsAsync(CacheKey));
+        }
+
+        [Fact, IsIntegration]
+        public async Task AddAsync_Set_ExpiryTimeAtDocumentLevel_ItemExistInCache()
+        {
+            // Arrange
+            var cacheValue = "Test";
+
+            await stringCache.AddAsync(new CacheItem<string>(CacheKey, cacheValue, TimeSpan.FromSeconds(5)));
+            
+            // Assert
+            Assert.True(await stringCache.ExistsAsync(CacheKey));
+        }
+
+        [Fact, IsIntegration]
+        public async Task AddAsync_No_ExpiryTimeSet()
+        {
+            // Arrange
+            var cacheValue = "Test";
+
+            await stringCache.AddAsync(new CacheItem<string>(CacheKey, cacheValue, TimeSpan.MaxValue));
+
+            // Assert
+            Assert.True(await stringCache.ExistsAsync(CacheKey));
+        }
     }
 }
