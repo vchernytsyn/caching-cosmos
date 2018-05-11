@@ -35,7 +35,7 @@ namespace Eshopworld.Caching.Cosmos
             if (item == null) throw new ArgumentNullException(nameof(item));
 
             int? expiryInSec = null;
-            if (item.Duration != TimeSpan.MaxValue) expiryInSec = item.Duration.Seconds;
+            if (item.Duration != TimeSpan.MaxValue) expiryInSec = Convert.ToInt32(item.Duration.TotalSeconds);
 
             var envelope = new Envelope(item.Key, Newtonsoft.Json.JsonConvert.SerializeObject(item.Value), expiryInSec);
 
