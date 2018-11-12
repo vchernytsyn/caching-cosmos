@@ -8,8 +8,19 @@ namespace Eshopworld.Caching.Cosmos.Tests
 {
     public class CosmosCacheFactoryTests
     {
+        [Fact, IsUnit]
+        public void Create_WithDocumentDirectAndPrimitiveType_RaisesException()
+        {
+            // Arrange
+            using (var factory = new CosmosCacheFactory(LocalClusterCosmosDb.ConnectionURI, LocalClusterCosmosDb.AccessKey, LocalClusterCosmosDb.DbName,new CosmosCacheFactorySettings() { InsertMode = CosmosCache.InsertMode.Document}))
+            {
+                // Assert
+                Assert.Throws<ArgumentOutOfRangeException>(() => factory.Create<string>(""));
+            }
+        }
+
         [Fact,IsIntegration]
-        public void NewInstace_WithValidConnectionString_NoException()
+        public void NewInstance_WithValidConnectionString_NoException()
         {
             // Arrange
             // Act

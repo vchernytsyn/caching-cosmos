@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Eshopworld.Caching.Core;
@@ -11,18 +12,24 @@ namespace Eshopworld.Caching.Cosmos.Tests
     {
         private const string CacheKey = "item";
         private CosmosCacheFactory cacheFactory;
+        private CosmosCacheFactory docDirectCacheFactory;
         private CosmosCache<string> stringCache;
-
         public CosmosCacheTests()
         {
             cacheFactory = new CosmosCacheFactory(LocalClusterCosmosDb.ConnectionURI, LocalClusterCosmosDb.AccessKey, LocalClusterCosmosDb.DbName);
+            docDirectCacheFactory = new CosmosCacheFactory(LocalClusterCosmosDb.ConnectionURI, LocalClusterCosmosDb.AccessKey, LocalClusterCosmosDb.DbName, new CosmosCacheFactorySettings() { InsertMode = CosmosCache.InsertMode.Document});
 
             stringCache = (CosmosCache<string>)cacheFactory.Create<string>("string-collection");
-            //stringCache.Remove(CacheKey);
+            
         }
 
+        public static IEnumerable<object[]> GetInsertModes()
+        {
+            yield return new object[] { CosmosCache.InsertMode.JSON };
+            yield return new object[] { CosmosCache.InsertMode.Document };
+        }
 
-        [Fact,IsIntegration]
+        [Fact, IsIntegration]
         public void SetString_DoesNotThrow()
         {
             // Arrange
@@ -41,7 +48,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
         }
 
 
-        [Fact(Skip = "Not supported by cosmos implementation (yet)")]
+        [Fact, IsIntegration]
         public void SetStringWithTimeout_ItemDoesNotExistAfterTimeout()
         {
             // Arrange
@@ -218,11 +225,12 @@ namespace Eshopworld.Caching.Cosmos.Tests
         }
 
 
-        [Fact,IsIntegration]
-        public void Get_SimpleObject_ReturnedObjectIsIdentical()
+        [Theory, IsIntegration]
+        [MemberData(nameof(GetInsertModes))]
+        public void Get_SimpleObject_ReturnedObjectIsIdentical(CosmosCache.InsertMode mode)
         {
             // Arrange
-            var cache = cacheFactory.CreateDefault<SimpleObject>();
+            var cache = CreateCache<SimpleObject>(mode);
             var value = SimpleObject.Create();
             cache.Set(new CacheItem<SimpleObject>(CacheKey, value, TimeSpan.FromSeconds(5)));
 
@@ -234,11 +242,12 @@ namespace Eshopworld.Caching.Cosmos.Tests
             Assert.Equal(result, value);
         }
 
-        [Fact,IsIntegration]
-        public void Get_ComplexObject_ReturnedObjectIsIdentical()
+        [Theory, IsIntegration]
+        [MemberData(nameof(GetInsertModes))]
+        public void Get_ComplexObject_ReturnedObjectIsIdentical(CosmosCache.InsertMode mode)
         {
             // Arrange
-            var cache = cacheFactory.CreateDefault<ComplexObject>();
+            var cache = CreateCache<ComplexObject>(mode);
 
             var value = ComplexObject.Create();
             cache.Set(new CacheItem<ComplexObject>(CacheKey, value, TimeSpan.FromSeconds(5)));
@@ -393,5 +402,79 @@ namespace Eshopworld.Caching.Cosmos.Tests
             // Assert
             Assert.True(await stringCache.ExistsAsync(CacheKey));
         }
+
+        [Fact, IsIntegration]
+        public async Task AddAsync_WithCacheThatHasDefaultTTL_DocumentAutoExpires()
+        {
+            // Arrange
+            var autoExpireCache = CreateTTLCache(TimeSpan.FromSeconds(2));
+            var cacheValue = "Test";
+
+            // Act
+            await autoExpireCache.AddAsync(new CacheItem<string>(CacheKey, cacheValue,TimeSpan.MaxValue));
+            await Task.Delay(TimeSpan.FromSeconds(4));
+
+            // Assert
+            Assert.False(await autoExpireCache.ExistsAsync(CacheKey));
+        }
+
+        [Fact, IsIntegration]
+        public async Task AddAsync_WithCacheThatHasDefaultTTLAndDocumentWithExplicitTTL_DocumentExpiresWithDocumentTTL()
+        {
+            // Arrange
+            var autoExpireCache = CreateTTLCache(TimeSpan.FromSeconds(2));
+            var cacheValue = "Test";
+
+            // Act
+            await autoExpireCache.AddAsync(new CacheItem<string>(CacheKey, cacheValue, TimeSpan.FromSeconds(6)));
+            await Task.Delay(TimeSpan.FromSeconds(4));
+
+            // Assert
+            Assert.True(await autoExpireCache.ExistsAsync(CacheKey));
+            
+            await Task.Delay(TimeSpan.FromSeconds(4));
+            Assert.False(await autoExpireCache.ExistsAsync(CacheKey));
+        }
+
+        [Fact, IsIntegration]
+        public async Task AddAsync_DocumentDirectInsertMode_RecordIsNotJsonBlob()
+        {
+            // Arrange
+            var ddCache = CreateDocumentDirectCache<SimpleObject>();
+            var value = SimpleObject.Create();
+
+            await ddCache.AddAsync(new CacheItem<SimpleObject>(CacheKey, value, TimeSpan.MaxValue));
+
+            // Assert
+            var result = await ddCache.Database.ReadDocumentAsync(ddCache.CreateDocumentURI(CacheKey));
+
+            Assert.NotNull(result);
+            Assert.Equal(value.Foo, result.Resource.GetPropertyValue<string>(nameof(SimpleObject.Foo)));
+        }
+
+        [Fact, IsIntegration]
+        public async Task AddAsync_WithPartitionKeySet_CanReadAndWriteWithPartitionKey()
+        {
+            // Arrange
+            var cacheFactory = new CosmosCacheFactory(LocalClusterCosmosDb.ConnectionURI, LocalClusterCosmosDb.AccessKey, LocalClusterCosmosDb.DbName, new CosmosCacheFactorySettings() { InsertMode = CosmosCache.InsertMode.Document,UseKeyAsPartitionKey = true});
+            var partCache = cacheFactory.Create<SimpleObject>($"partition-{typeof(SimpleObject).Name}");
+            var value = SimpleObject.Create();
+
+            await partCache.AddAsync(new CacheItem<SimpleObject>(CacheKey, value, TimeSpan.MaxValue));
+
+            // Assert
+            var result = await partCache.GetAsync(CacheKey);
+
+            Assert.NotNull(result);
+        }
+
+        private static CosmosCache<string> CreateTTLCache(TimeSpan defaultTTL)
+        {
+            var cFactory = new CosmosCacheFactory(LocalClusterCosmosDb.ConnectionURI, LocalClusterCosmosDb.AccessKey, LocalClusterCosmosDb.DbName, new CosmosCacheFactorySettings() { DefaultTimeToLive = (int)defaultTTL.TotalSeconds });
+            return  (CosmosCache<string>)cFactory.Create<string>("ttl-string-collection");
+        }
+
+        private CosmosCache<T> CreateCache<T>(CosmosCache.InsertMode mode) => mode == CosmosCache.InsertMode.Document ? CreateDocumentDirectCache<T>() : (CosmosCache<T>)cacheFactory.CreateDefault<T>();
+        private CosmosCache<T> CreateDocumentDirectCache<T>() => (CosmosCache<T>)docDirectCacheFactory.Create<T>($"documentDirect-{typeof(T).Name}");
     }
 }
