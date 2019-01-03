@@ -50,7 +50,7 @@ namespace Eshopworld.Caching.Cosmos
         private readonly CosmosCache.InsertMode _insertMode;
         private readonly JsonSerializer _jsonSerializer;
 
-        public DocumentClient Database { get; set; }
+        public DocumentClient Database { get; }
 
         public CosmosCache(Uri documentCollectionUri, DocumentClient documentClient)
             : this(documentCollectionUri, documentClient, CosmosCache.InsertMode.JSON, false, null) { }
