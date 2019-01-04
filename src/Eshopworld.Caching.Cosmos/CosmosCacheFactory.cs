@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using Eshopworld.Caching.Core;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
-using Newtonsoft.Json;
 
 namespace Eshopworld.Caching.Cosmos
 {
@@ -13,7 +12,6 @@ namespace Eshopworld.Caching.Cosmos
         private readonly string _dbName;
         private readonly CosmosCacheFactorySettings _settings;
         private readonly ConcurrentDictionary<string, Uri> _documentCollectionUriLookup = new ConcurrentDictionary<string, Uri>();
-        private readonly JsonSerializer _jsonSerializer;
 
         public DocumentClient DocumentClient { get; }
 
@@ -24,17 +22,16 @@ namespace Eshopworld.Caching.Cosmos
             set => _settings.NewCollectionDefaultDTU = value;
         }
 
-        public CosmosCacheFactory(Uri cosmosAccountEndpoint, string cosmosAccountKey, string dbName, CosmosCacheFactorySettings settings, JsonSerializer jsonSerializer)
+        public CosmosCacheFactory(Uri cosmosAccountEndpoint, string cosmosAccountKey, string dbName, CosmosCacheFactorySettings settings)
         {
             _dbName = dbName ?? throw new ArgumentNullException(nameof(dbName));
             _settings = settings;
-            _jsonSerializer = jsonSerializer;
 
             DocumentClient = new DocumentClient(cosmosAccountEndpoint, cosmosAccountKey);
         }
 
         public CosmosCacheFactory(Uri cosmosAccountEndpoint, string cosmosAccountKey, string dbName) 
-            : this(cosmosAccountEndpoint, cosmosAccountKey, dbName, CosmosCacheFactorySettings.Default, JsonSerializer.CreateDefault()){}
+            : this(cosmosAccountEndpoint, cosmosAccountKey, dbName, CosmosCacheFactorySettings.Default){}
 
         public ICache<T> CreateDefault<T>() => Create<T>(typeof(T).Name);
 
@@ -47,7 +44,7 @@ namespace Eshopworld.Caching.Cosmos
 
             var documentCollectionUri = _documentCollectionUriLookup.GetOrAdd(name, TryCreateCollection);
 
-            return new CosmosCache<T>(documentCollectionUri, DocumentClient, _settings.InsertMode,_settings.UseKeyAsPartitionKey, _jsonSerializer);
+            return new CosmosCache<T>(documentCollectionUri, DocumentClient, _settings.InsertMode,_settings.UseKeyAsPartitionKey);
         }
 
         private Uri TryCreateCollection(string name)
