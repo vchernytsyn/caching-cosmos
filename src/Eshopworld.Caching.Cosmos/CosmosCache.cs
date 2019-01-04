@@ -10,6 +10,7 @@ using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Document = Microsoft.Azure.Documents.Document;
 
 namespace Eshopworld.Caching.Cosmos
 {
@@ -164,14 +165,7 @@ namespace Eshopworld.Caching.Cosmos
                 case CosmosCache.InsertMode.Autodetect:
                 {
                     var resourceResponse = await DocumentClient.ReadDocumentAsync(documentUri, requestOptions).ConfigureAwait(false);
-                    
-                    var jObject = (JObject)CosmosCache.PropertyBagField.GetValue(resourceResponse.Resource);
-
-                    var result = jObject.ContainsKey(nameof(Envelope.Blob))
-                        ? JsonConvert.DeserializeObject<T>(jObject[nameof(Envelope.Blob)].ToString())
-                        : jObject.ToObject<T>();
-
-                    return (resourceResponse.StatusCode, result);
+                    return (resourceResponse.StatusCode, ChangeDocumentType<T>(resourceResponse.Resource));
                 }
                 default:
                     throw new NotSupportedException($"InsertMode '{_insertMode}' is not supported!");
@@ -184,17 +178,17 @@ namespace Eshopworld.Caching.Cosmos
             if (keys == null)
                 throw new ArgumentNullException(nameof(keys));
 
-            using (var queryable = DocumentClient.CreateDocumentQuery<Envelope>(_documentCollectionUri)
-                .Where(e => keys.Contains(e.id))
+            using (var queryableDocument = DocumentClient.CreateDocumentQuery<Document>(_documentCollectionUri)
+                .Where(e => keys.Contains(e.Id))
                 .AsDocumentQuery())
             {
                 var items = new Dictionary<string, T>();
 
-                while (queryable.HasMoreResults)
+                while (queryableDocument.HasMoreResults)
                 {
-                    foreach (var e in await queryable.ExecuteNextAsync<Envelope>())
+                    foreach (var document in await queryableDocument.ExecuteNextAsync<Document>().ConfigureAwait(false))
                     {
-                        items[e.id] = (T)(object)e;
+                        items[document.Id] = ChangeDocumentType<T>(document);
                     }
                 }
 
@@ -219,6 +213,17 @@ namespace Eshopworld.Caching.Cosmos
                 Blob = blob;
                 TimeToLive = expiry;
             }
+        }
+
+        private TResult ChangeDocumentType<TResult>(Document document)
+        {
+            var jObject = (JObject)CosmosCache.PropertyBagField.GetValue(document);
+
+            var result = jObject.ContainsKey(nameof(Envelope.Blob))
+                ? JsonConvert.DeserializeObject<TResult>(jObject[nameof(Envelope.Blob)].ToString())
+                : jObject.ToObject<TResult>();
+
+            return result;
         }
     }
 }
