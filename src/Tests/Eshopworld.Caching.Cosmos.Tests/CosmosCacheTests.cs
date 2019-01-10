@@ -13,7 +13,6 @@ namespace Eshopworld.Caching.Cosmos.Tests
         private const string CacheKey = "item";
         private CosmosCacheFactory cacheFactory;
         private CosmosCacheFactory docDirectCacheFactory;
-        private CosmosCacheFactory autodetectDirectCacheFactory;
         private CosmosCache<string> stringCache;
         public CosmosCacheTests()
         {
@@ -22,9 +21,6 @@ namespace Eshopworld.Caching.Cosmos.Tests
 
             docDirectCacheFactory = new CosmosCacheFactory(
                 LocalClusterCosmosDb.ConnectionURI, LocalClusterCosmosDb.AccessKey, LocalClusterCosmosDb.DbName, new CosmosCacheFactorySettings { InsertMode = CosmosCache.InsertMode.Document });
-
-            autodetectDirectCacheFactory = new CosmosCacheFactory(
-                LocalClusterCosmosDb.ConnectionURI, LocalClusterCosmosDb.AccessKey, LocalClusterCosmosDb.DbName, new CosmosCacheFactorySettings { InsertMode = CosmosCache.InsertMode.Autodetect });
 
             stringCache = (CosmosCache<string>)cacheFactory.Create<string>("string-collection");
         }
@@ -96,6 +92,32 @@ namespace Eshopworld.Caching.Cosmos.Tests
 
             // Assert
             Assert.Equal(result, cacheValue);
+        }
+
+        [Theory, IsIntegration]
+        [InlineData(CosmosCache.InsertMode.JSON)]
+        [InlineData(CosmosCache.InsertMode.Document)]
+        public async Task GetAsync_ReturnMultipleItems_WhenMultipleCacheKeysRequestedWithDefinedInsertMode(CosmosCache.InsertMode insertMode)
+        {
+            // Arrange
+            var cosmosCache = CreateCache<SimpleObject>(insertMode);
+
+            var keys = new List<string>();
+            Enumerable.Range(0, 10).ToList().ForEach(i =>
+            {
+                var key = CacheKey + i;
+                keys.Add(key);
+                var cacheValue = new SimpleObject { Foo = key, Value = i };
+                cosmosCache.Set(new CacheItem<SimpleObject>(key, cacheValue, TimeSpan.FromSeconds(5)));
+            });
+
+            // Act
+            var result = (await cosmosCache.GetAsync(keys)).ToArray();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.True(result.Select(x => x.Key).All(x => keys.Contains(x)));
+            Assert.True(result.Select(x => x.Value).All(x => keys.Contains(x.Foo)));
         }
 
         [Fact, IsIntegration]
@@ -231,24 +253,6 @@ namespace Eshopworld.Caching.Cosmos.Tests
 
             // Act
             var result = cache.Get(CacheKey);
-
-            // Assert
-            Assert.False(ReferenceEquals(result, value));
-            Assert.Equal(result, value);
-        }
-
-        [Fact, IsUnit]
-        public void Get_SimpleObjectWhenAutodetectUsed_ReturnedObjectIsIdentical()
-        {
-            // Arrange
-            var cacheJson = CreateCache<SimpleObject>(CosmosCache.InsertMode.JSON);
-            var value = SimpleObject.Create();
-            cacheJson.Set(new CacheItem<SimpleObject>(CacheKey, value, TimeSpan.FromSeconds(5)));
-
-            var cacheAutodetect = CreateCache<SimpleObject>(CosmosCache.InsertMode.Autodetect);
-
-            // Act
-            var result = cacheAutodetect.Get(CacheKey);
 
             // Assert
             Assert.False(ReferenceEquals(result, value));
@@ -489,16 +493,17 @@ namespace Eshopworld.Caching.Cosmos.Tests
             return (CosmosCache<string>)cFactory.Create<string>("ttl-string-collection");
         }
 
-        private CosmosCache<T> CreateCache<T>(CosmosCache.InsertMode mode)
+        private CosmosCache<T> CreateCache<T>(CosmosCache.InsertMode mode, string cacheName = null)
         {
             switch (mode)
             {
-                case CosmosCache.InsertMode.Autodetect:
-                    return (CosmosCache<T>)autodetectDirectCacheFactory.Create<T>(typeof(T).Name);
                 case CosmosCache.InsertMode.Document:
-                    return (CosmosCache<T>)docDirectCacheFactory.Create<T>(typeof(T).Name);
+                    return (CosmosCache<T>)docDirectCacheFactory.Create<T>(cacheName ?? typeof(T).Name);
                 case CosmosCache.InsertMode.JSON:
-                    return (CosmosCache<T>)cacheFactory.CreateDefault<T>();
+                    if (string.IsNullOrEmpty(cacheName))
+                    { return (CosmosCache<T>)cacheFactory.CreateDefault<T>(); }
+                    else
+                    { return (CosmosCache<T>)cacheFactory.Create<T>(cacheName); }
                 default:
                     throw new NotImplementedException($"Cache creator for InsertMode='{mode}' is not implemented!");
             }

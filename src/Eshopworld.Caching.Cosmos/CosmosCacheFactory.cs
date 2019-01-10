@@ -13,6 +13,10 @@ namespace Eshopworld.Caching.Cosmos
         private readonly CosmosCacheFactorySettings _settings;
         private readonly ConcurrentDictionary<string, Uri> _documentCollectionUriLookup = new ConcurrentDictionary<string, Uri>();
 
+        protected CosmosCache.InsertMode InsertMode => _settings.InsertMode;
+
+        protected bool UseKeyAsPartitionKey => _settings.UseKeyAsPartitionKey;
+
         public DocumentClient DocumentClient { get; }
 
         [Obsolete("Use CosmosCacheFactorySettings in ctor instead")]
@@ -30,26 +34,32 @@ namespace Eshopworld.Caching.Cosmos
             DocumentClient = new DocumentClient(cosmosAccountEndpoint, cosmosAccountKey);
         }
 
-        public CosmosCacheFactory(Uri cosmosAccountEndpoint, string cosmosAccountKey, string dbName) 
-            : this(cosmosAccountEndpoint, cosmosAccountKey, dbName, CosmosCacheFactorySettings.Default){}
+        public CosmosCacheFactory(Uri cosmosAccountEndpoint, string cosmosAccountKey, string dbName)
+            : this(cosmosAccountEndpoint, cosmosAccountKey, dbName, CosmosCacheFactorySettings.Default) { }
 
         public ICache<T> CreateDefault<T>() => Create<T>(typeof(T).Name);
 
         public ICache<T> Create<T>(string name)
         {
-            if (name == null) throw new ArgumentNullException(nameof(name));
+            if (name == null)
+                throw new ArgumentNullException(nameof(name));
 
-            if(_settings.InsertMode == CosmosCache.InsertMode.Document && Type.GetTypeCode(typeof(T)) != TypeCode.Object) 
+            if (_settings.InsertMode == CosmosCache.InsertMode.Document && Type.GetTypeCode(typeof(T)) != TypeCode.Object)
                 throw new ArgumentOutOfRangeException("T", $"Primitive type '{typeof(T)}' not supported. Non primitive types only (i.e. a class)");
 
             var documentCollectionUri = _documentCollectionUriLookup.GetOrAdd(name, TryCreateCollection);
 
-            return new CosmosCache<T>(documentCollectionUri, DocumentClient, _settings.InsertMode,_settings.UseKeyAsPartitionKey);
+            return BuildCacheInstance<T>(documentCollectionUri);
+        }
+
+        protected virtual ICache<T> BuildCacheInstance<T>(Uri documentCollectionUri)
+        {
+            return new CosmosCache<T>(documentCollectionUri, DocumentClient, _settings.InsertMode, _settings.UseKeyAsPartitionKey);
         }
 
         private Uri TryCreateCollection(string name)
         {
-            DocumentClient.CreateDatabaseIfNotExistsAsync(new Database {Id = _dbName}).ConfigureAwait(false).GetAwaiter().GetResult();
+            DocumentClient.CreateDatabaseIfNotExistsAsync(new Database { Id = _dbName }).ConfigureAwait(false).GetAwaiter().GetResult();
 
             var docCol = new DocumentCollection
             {
@@ -59,10 +69,10 @@ namespace Eshopworld.Caching.Cosmos
 
             if (_settings.UseKeyAsPartitionKey)
             {
-                docCol.PartitionKey = new PartitionKeyDefinition {Paths = new Collection<string> {"/id"}};
+                docCol.PartitionKey = new PartitionKeyDefinition { Paths = new Collection<string> { "/id" } };
             }
 
-            var dc = DocumentClient.CreateDocumentCollectionIfNotExistsAsync(UriFactory.CreateDatabaseUri(_dbName), docCol,new RequestOptions {OfferThroughput = _settings.NewCollectionDefaultDTU})
+            var dc = DocumentClient.CreateDocumentCollectionIfNotExistsAsync(UriFactory.CreateDatabaseUri(_dbName), docCol, new RequestOptions { OfferThroughput = _settings.NewCollectionDefaultDTU })
                                    .ConfigureAwait(false)
                                    .GetAwaiter()
                                    .GetResult();

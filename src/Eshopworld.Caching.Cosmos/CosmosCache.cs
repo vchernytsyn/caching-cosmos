@@ -26,12 +26,7 @@ namespace Eshopworld.Caching.Cosmos
             /// <summary>
             /// Persists data as pure JSON model.
             /// </summary>
-            Document,
-
-            /// <summary>
-            /// Use 'Document' mode for writing data. Auto-detect mode for reading data.
-            /// </summary>
-            Autodetect
+            Document
         }
 
         internal static readonly FieldInfo PropertyBagField = typeof(Document).GetField("propertyBag", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -90,7 +85,6 @@ namespace Eshopworld.Caching.Cosmos
             switch (_insertMode)
             {
                 case CosmosCache.InsertMode.Document:
-                case CosmosCache.InsertMode.Autodetect:
                     {
                         var doc = new Document();
                         CosmosCache.PropertyBagField.SetValue(doc, JObject.FromObject(item.Value)); // todo: there has to be a better way to do this. its either this, or call the internal 'FromObject' method..
@@ -145,7 +139,7 @@ namespace Eshopworld.Caching.Cosmos
             }
         }
 
-        private async Task<(HttpStatusCode statusCode, T body)> GetDocument(string key)
+        protected virtual async Task<(HttpStatusCode statusCode, T body)> GetDocument(string key)
         {
             var documentUri = CreateDocumentURI(key);
             var requestOptions = _usePartitionKey ? new RequestOptions { PartitionKey = new PartitionKey(key) } : null;
@@ -161,11 +155,6 @@ namespace Eshopworld.Caching.Cosmos
                 {
                     var documentResponse = await DocumentClient.ReadDocumentAsync<Envelope>(documentUri, requestOptions).ConfigureAwait(false);
                     return (documentResponse.StatusCode, JsonConvert.DeserializeObject<T>(documentResponse.Document.Blob));
-                }
-                case CosmosCache.InsertMode.Autodetect:
-                {
-                    var resourceResponse = await DocumentClient.ReadDocumentAsync(documentUri, requestOptions).ConfigureAwait(false);
-                    return (resourceResponse.StatusCode, ChangeDocumentType<T>(resourceResponse.Resource));
                 }
                 default:
                     throw new NotSupportedException($"InsertMode '{_insertMode}' is not supported!");
@@ -198,7 +187,7 @@ namespace Eshopworld.Caching.Cosmos
 
         public Uri CreateDocumentURI(string key) => new Uri($"{_documentCollectionUri}/docs/{Uri.EscapeUriString(key)}", UriKind.Relative);
 
-        class Envelope
+        protected class Envelope
         {
             public string id { get; } // do not uppercase this, db requires it lower so the document id matches the preorder code
             public string Blob { get; }
@@ -215,7 +204,7 @@ namespace Eshopworld.Caching.Cosmos
             }
         }
 
-        private TResult ChangeDocumentType<TResult>(Document document)
+        protected TResult ChangeDocumentType<TResult>(Document document)
         {
             var jObject = (JObject)CosmosCache.PropertyBagField.GetValue(document);
 
