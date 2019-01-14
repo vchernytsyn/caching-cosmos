@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Eshopworld.Caching.Core;
 using Eshopworld.Tests.Core;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Eshopworld.Caching.Cosmos.Tests
 {
@@ -14,8 +15,12 @@ namespace Eshopworld.Caching.Cosmos.Tests
         private CosmosCacheFactory cacheFactory;
         private CosmosCacheFactory docDirectCacheFactory;
         private CosmosCache<string> stringCache;
-        public CosmosCacheTests()
+
+        private readonly ITestOutputHelper _output;
+
+        public CosmosCacheTests(ITestOutputHelper output)
         {
+            _output = output;
             cacheFactory = new CosmosCacheFactory(
                 LocalClusterCosmosDb.ConnectionURI, LocalClusterCosmosDb.AccessKey, LocalClusterCosmosDb.DbName, new CosmosCacheFactorySettings { InsertMode = CosmosCache.InsertMode.JSON });
 
@@ -193,20 +198,6 @@ namespace Eshopworld.Caching.Cosmos.Tests
             Assert.False(stringCache.Exists(CacheKey));
         }
 
-        [Fact, IsIntegration]
-        public async Task Exists_AfterAddingAndRemoving_GetReturnsNull()
-        {
-            // Arrange
-            var cacheValue = "Test";
-
-            stringCache.Set(new CacheItem<string>(CacheKey, cacheValue, TimeSpan.FromSeconds(5)));
-
-            // Act
-            // Assert
-            Assert.True(await stringCache.ExistsAsync(CacheKey));
-        }
-
-
         [Fact(Skip = "Not supported by cosmos implementation (yet)")]
         public void Expire_AfterSettingExpireAndWaiting_ItemDoesntExistInCache()
         {
@@ -290,7 +281,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             var result = cache.GetResult(CacheKey);
 
             // Assert
-            Assert.NotNull(result);
+            Assert.NotNull(result.Value);
             Assert.True(result.HasValue);
             Assert.False(ReferenceEquals(result.Value, value));
             Assert.Equal(result.Value, value);
@@ -308,7 +299,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             var result = await cache.GetResultAsync(CacheKey);
 
             // Assert
-            Assert.NotNull(result);
+            Assert.NotNull(result.Value);
             Assert.True(result.HasValue);
             Assert.False(ReferenceEquals(result.Value, value));
             Assert.Equal(result.Value, value);
@@ -324,7 +315,6 @@ namespace Eshopworld.Caching.Cosmos.Tests
             var result = cache.GetResult("doesntExist");
 
             // Assert
-            Assert.NotNull(result);
             Assert.False(result.HasValue);
             Assert.Null(result.Value);
         }
@@ -348,7 +338,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             stopwatch.Stop();
 
             // Assert
-            Console.WriteLine("Duration:" + stopwatch.ElapsedMilliseconds);
+            _output.WriteLine($"Duration: {stopwatch.Elapsed}");
             Assert.True(loopResult.IsCompleted);
         }
 
@@ -368,13 +358,13 @@ namespace Eshopworld.Caching.Cosmos.Tests
             var loopResult = Parallel.For(0, 20, i =>
             {
                 var index = i % numberOfItems;
-                var result = cache.Get("item-" + index);
+                cache.Get("item-" + index);
             });
 
             stopwatch.Stop();
 
             // Assert
-            Console.WriteLine("Duration:" + stopwatch.ElapsedMilliseconds);
+            _output.WriteLine($"Duration: {stopwatch.Elapsed}");
             Assert.True(loopResult.IsCompleted);
         }
 
@@ -421,7 +411,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
         public async Task AddAsync_WithCacheThatHasDefaultTTL_DocumentAutoExpires()
         {
             // Arrange
-            var autoExpireCache = CreateTTLCache(TimeSpan.FromSeconds(2));
+            var autoExpireCache = CreateTtlCache(TimeSpan.FromSeconds(2));
             var cacheValue = "Test";
 
             // Act
@@ -436,7 +426,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
         public async Task AddAsync_WithCacheThatHasDefaultTTLAndDocumentWithExplicitTTL_DocumentExpiresWithDocumentTTL()
         {
             // Arrange
-            var autoExpireCache = CreateTTLCache(TimeSpan.FromSeconds(2));
+            var autoExpireCache = CreateTtlCache(TimeSpan.FromSeconds(2));
             var cacheValue = "Test";
 
             // Act
@@ -485,7 +475,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             Assert.NotNull(result);
         }
 
-        private static CosmosCache<string> CreateTTLCache(TimeSpan defaultTtl)
+        private static CosmosCache<string> CreateTtlCache(TimeSpan defaultTtl)
         {
             var cFactory = new CosmosCacheFactory(
                 LocalClusterCosmosDb.ConnectionURI, LocalClusterCosmosDb.AccessKey, LocalClusterCosmosDb.DbName,
@@ -500,10 +490,9 @@ namespace Eshopworld.Caching.Cosmos.Tests
                 case CosmosCache.InsertMode.Document:
                     return (CosmosCache<T>)docDirectCacheFactory.Create<T>(cacheName ?? typeof(T).Name);
                 case CosmosCache.InsertMode.JSON:
-                    if (string.IsNullOrEmpty(cacheName))
-                    { return (CosmosCache<T>)cacheFactory.CreateDefault<T>(); }
-                    else
-                    { return (CosmosCache<T>)cacheFactory.Create<T>(cacheName); }
+                    return string.IsNullOrEmpty(cacheName)
+                        ? (CosmosCache<T>)cacheFactory.CreateDefault<T>()
+                        : (CosmosCache<T>)cacheFactory.Create<T>(cacheName);
                 default:
                     throw new NotImplementedException($"Cache creator for InsertMode='{mode}' is not implemented!");
             }
