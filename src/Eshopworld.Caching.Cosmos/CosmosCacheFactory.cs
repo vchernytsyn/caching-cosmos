@@ -41,15 +41,12 @@ namespace Eshopworld.Caching.Cosmos
 
         public ICache<T> Create<T>(string name)
         {
-            if (name == null)
-                throw new ArgumentNullException(nameof(name));
+            if (name == null) throw new ArgumentNullException(nameof(name));
+            if (_settings.InsertMode == CosmosCache.InsertMode.Document && Type.GetTypeCode(typeof(T)) != TypeCode.Object) throw new ArgumentOutOfRangeException("T", $"Primitive type '{typeof(T)}' not supported. Non primitive types only (i.e. a class)");
 
-            if (_settings.InsertMode == CosmosCache.InsertMode.Document && Type.GetTypeCode(typeof(T)) != TypeCode.Object)
-                throw new ArgumentOutOfRangeException("T", $"Primitive type '{typeof(T)}' not supported. Non primitive types only (i.e. a class)");
+            var documentCollectionURI = _documentCollectionUriLookup.GetOrAdd(name, TryCreateCollection);
 
-            var documentCollectionUri = _documentCollectionUriLookup.GetOrAdd(name, TryCreateCollection);
-
-            return BuildCacheInstance<T>(documentCollectionUri);
+            return BuildCacheInstance<T>(documentCollectionURI);
         }
 
         protected virtual ICache<T> BuildCacheInstance<T>(Uri documentCollectionUri)
@@ -59,9 +56,9 @@ namespace Eshopworld.Caching.Cosmos
 
         private Uri TryCreateCollection(string name)
         {
-            DocumentClient.CreateDatabaseIfNotExistsAsync(new Database { Id = _dbName }).ConfigureAwait(false).GetAwaiter().GetResult();
+            var db = DocumentClient.CreateDatabaseIfNotExistsAsync(new Database() { Id = _dbName }).ConfigureAwait(false).GetAwaiter().GetResult();
 
-            var docCol = new DocumentCollection
+            var docCol = new DocumentCollection()
             {
                 Id = name,
                 DefaultTimeToLive = _settings.DefaultTimeToLive
@@ -69,10 +66,10 @@ namespace Eshopworld.Caching.Cosmos
 
             if (_settings.UseKeyAsPartitionKey)
             {
-                docCol.PartitionKey = new PartitionKeyDefinition { Paths = new Collection<string> { "/id" } };
+                docCol.PartitionKey = new PartitionKeyDefinition() { Paths = new Collection<string> { "/id" } };
             }
 
-            var dc = DocumentClient.CreateDocumentCollectionIfNotExistsAsync(UriFactory.CreateDatabaseUri(_dbName), docCol, new RequestOptions { OfferThroughput = _settings.NewCollectionDefaultDTU })
+            var dc = DocumentClient.CreateDocumentCollectionIfNotExistsAsync(UriFactory.CreateDatabaseUri(_dbName), docCol, new RequestOptions() { OfferThroughput = _settings.NewCollectionDefaultDTU })
                                    .ConfigureAwait(false)
                                    .GetAwaiter()
                                    .GetResult();

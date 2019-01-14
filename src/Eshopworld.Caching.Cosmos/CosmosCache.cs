@@ -49,8 +49,7 @@ namespace Eshopworld.Caching.Cosmos
 
         public DocumentClient DocumentClient { get; }
 
-        public CosmosCache(Uri documentCollectionUri, DocumentClient documentClient)
-            : this(documentCollectionUri, documentClient, CosmosCache.InsertMode.JSON, false) { }
+        public CosmosCache(Uri documentCollectionUri, DocumentClient documentClient) : this(documentCollectionUri, documentClient, CosmosCache.InsertMode.JSON,false) { }
 
         public CosmosCache(Uri documentCollectionUri, DocumentClient documentClient, CosmosCache.InsertMode insertMode, bool usePartitionKey)
         {
@@ -67,7 +66,7 @@ namespace Eshopworld.Caching.Cosmos
             if (item == null)
                 throw new ArgumentNullException(nameof(item));
 
-            var requestOptions = _usePartitionKey ? new RequestOptions { PartitionKey = new PartitionKey(item.Key) } : null;
+            var requestOptions = _usePartitionKey ? new RequestOptions() { PartitionKey = new PartitionKey(item.Key) } : null;
             var docResponse = await DocumentClient.UpsertDocumentAsync(_documentCollectionUri, CreateDocument(item), requestOptions).ConfigureAwait(false);
 
             if (!(docResponse.StatusCode == HttpStatusCode.Created || docResponse.StatusCode == HttpStatusCode.OK))
@@ -139,7 +138,7 @@ namespace Eshopworld.Caching.Cosmos
         protected virtual async Task<(HttpStatusCode statusCode, T body)> GetDocument(string key)
         {
             var documentUri = CreateDocumentURI(key);
-            var requestOptions = _usePartitionKey ? new RequestOptions { PartitionKey = new PartitionKey(key) } : null;
+            var requestOptions = _usePartitionKey ? new RequestOptions() { PartitionKey = new PartitionKey(key) } : null;
 
             if (_insertMode == CosmosCache.InsertMode.JSON)
             {
@@ -158,8 +157,7 @@ namespace Eshopworld.Caching.Cosmos
         public IEnumerable<KeyValuePair<string, T>> Get(IEnumerable<string> keys) => GetAsync(keys).ConfigureAwait(false).GetAwaiter().GetResult();
         public async Task<IEnumerable<KeyValuePair<string, T>>> GetAsync(IEnumerable<string> keys)
         {
-            if (keys == null)
-                throw new ArgumentNullException(nameof(keys));
+            if (keys == null) throw new ArgumentNullException(nameof(keys));
 
             using (var queryableDocument = DocumentClient.CreateDocumentQuery<Document>(_documentCollectionUri)
                 .Where(e => keys.Contains(e.Id))
@@ -193,7 +191,7 @@ namespace Eshopworld.Caching.Cosmos
             public Envelope(string id, string blob, int? expiry = null)
             {
                 this.id = id;
-                Blob = blob;
+                this.Blob = blob;
                 TimeToLive = expiry;
             }
         }
