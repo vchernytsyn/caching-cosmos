@@ -118,8 +118,7 @@ namespace Eshopworld.Caching.Cosmos
 
         public async Task<CacheResult<T>> GetResultAsync(string key)
         {
-            if (key == null)
-                throw new ArgumentNullException(nameof(key));
+            if (key == null) throw new ArgumentNullException(nameof(key));
 
             try
             {

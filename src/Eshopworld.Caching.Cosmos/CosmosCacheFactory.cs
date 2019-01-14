@@ -11,11 +11,7 @@ namespace Eshopworld.Caching.Cosmos
     {
         private readonly string _dbName;
         private readonly CosmosCacheFactorySettings _settings;
-        private readonly ConcurrentDictionary<string, Uri> _documentCollectionUriLookup = new ConcurrentDictionary<string, Uri>();
-
-        protected CosmosCache.InsertMode InsertMode => _settings.InsertMode;
-
-        protected bool UseKeyAsPartitionKey => _settings.UseKeyAsPartitionKey;
+        private readonly ConcurrentDictionary<string, Uri> documentCollectionURILookup = new ConcurrentDictionary<string, Uri>();
 
         public DocumentClient DocumentClient { get; }
 
@@ -34,17 +30,17 @@ namespace Eshopworld.Caching.Cosmos
             DocumentClient = new DocumentClient(cosmosAccountEndpoint, cosmosAccountKey);
         }
 
-        public CosmosCacheFactory(Uri cosmosAccountEndpoint, string cosmosAccountKey, string dbName)
-            : this(cosmosAccountEndpoint, cosmosAccountKey, dbName, CosmosCacheFactorySettings.Default) { }
+        public CosmosCacheFactory(Uri cosmosAccountEndpoint, string cosmosAccountKey, string dbName) : this(cosmosAccountEndpoint, cosmosAccountKey, dbName, CosmosCacheFactorySettings.Default){}
+
 
         public ICache<T> CreateDefault<T>() => Create<T>(typeof(T).Name);
 
         public ICache<T> Create<T>(string name)
         {
             if (name == null) throw new ArgumentNullException(nameof(name));
-            if (_settings.InsertMode == CosmosCache.InsertMode.Document && Type.GetTypeCode(typeof(T)) != TypeCode.Object) throw new ArgumentOutOfRangeException("T", $"Primitive type '{typeof(T)}' not supported. Non primitive types only (i.e. a class)");
+            if(_settings.InsertMode == CosmosCache.InsertMode.Document && Type.GetTypeCode(typeof(T)) != TypeCode.Object) throw new ArgumentOutOfRangeException("T",$"Primitive type '{typeof(T)}' not supported. Non primitive types only (i.e. a class)");
 
-            var documentCollectionURI = _documentCollectionUriLookup.GetOrAdd(name, TryCreateCollection);
+            var documentCollectionURI = documentCollectionURILookup.GetOrAdd(name, TryCreateCollection);
 
             return BuildCacheInstance<T>(documentCollectionURI);
         }
@@ -56,7 +52,7 @@ namespace Eshopworld.Caching.Cosmos
 
         private Uri TryCreateCollection(string name)
         {
-            var db = DocumentClient.CreateDatabaseIfNotExistsAsync(new Database() { Id = _dbName }).ConfigureAwait(false).GetAwaiter().GetResult();
+            var db = DocumentClient.CreateDatabaseIfNotExistsAsync(new Database() {Id = _dbName}).ConfigureAwait(false).GetAwaiter().GetResult();
 
             var docCol = new DocumentCollection()
             {
@@ -66,7 +62,7 @@ namespace Eshopworld.Caching.Cosmos
 
             if (_settings.UseKeyAsPartitionKey)
             {
-                docCol.PartitionKey = new PartitionKeyDefinition() { Paths = new Collection<string> { "/id" } };
+                docCol.PartitionKey = new PartitionKeyDefinition() {Paths = new Collection<string>() {"/id"}};
             }
 
             var dc = DocumentClient.CreateDocumentCollectionIfNotExistsAsync(UriFactory.CreateDatabaseUri(_dbName), docCol, new RequestOptions() { OfferThroughput = _settings.NewCollectionDefaultDTU })

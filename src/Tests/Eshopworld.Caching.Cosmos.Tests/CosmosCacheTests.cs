@@ -34,7 +34,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             yield return new object[] { CosmosCache.InsertMode.Document };
         }
 
-        [Fact,IsIntegration]
+        [Fact, IsIntegration]
         public void SetString_DoesNotThrow()
         {
             // Arrange
@@ -252,6 +252,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             Assert.False(await stringCache.ExistsAsync(CacheKey));
         }
 
+
         [Theory, IsIntegration]
         [MemberData(nameof(GetInsertModes))]
         public void Get_SimpleObject_ReturnedObjectIsIdentical(CosmosCache.InsertMode mode)
@@ -378,7 +379,8 @@ namespace Eshopworld.Caching.Cosmos.Tests
             var loopResult = Parallel.For(0, 20, i =>
             {
                 var index = i % numberOfItems;
-                cache.Get("item-" + index);
+                var result = cache.Get("item-" + index);
+
             });
 
             stopwatch.Stop();
@@ -404,7 +406,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
             Assert.False(await stringCache.ExistsAsync(CacheKey));
         }
 
-        [Fact,IsIntegration]
+        [Fact, IsIntegration]
         public async Task AddAsync_Set_ExpiryTimeAtDocumentLevel_ItemExistInCache()
         {
             // Arrange
