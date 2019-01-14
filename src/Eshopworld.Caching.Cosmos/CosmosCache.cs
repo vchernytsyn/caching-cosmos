@@ -82,24 +82,21 @@ namespace Eshopworld.Caching.Cosmos
         {
             var ttl = item.Duration != TimeSpan.MaxValue ? (int?)item.Duration.TotalSeconds : null;
 
-            switch (_insertMode)
+            if (_insertMode == CosmosCache.InsertMode.Document)
             {
-                case CosmosCache.InsertMode.Document:
-                    {
-                        var doc = new Document();
-                        CosmosCache.PropertyBagField.SetValue(doc, JObject.FromObject(item.Value)); // todo: there has to be a better way to do this. its either this, or call the internal 'FromObject' method..
-                        doc.Id = item.Key;
-                        doc.TimeToLive = ttl;
+                var doc = new Document();
+                CosmosCache.PropertyBagField.SetValue(doc, JObject.FromObject(item.Value)); // todo: there has to be a better way to do this. its either this, or call the internal 'FromObject' method..
+                doc.Id = item.Key;
+                doc.TimeToLive = ttl;
 
-                        return doc;
-                    }
-                case CosmosCache.InsertMode.JSON:
-                    {
-                        return new Envelope(item.Key, JsonConvert.SerializeObject(item.Value), ttl);
-                    }
-                default:
-                    throw new NotSupportedException($"InsertMode '{_insertMode}' is not supported!");
+                return doc;
             }
+            if (_insertMode == CosmosCache.InsertMode.JSON)
+            {
+                return new Envelope(item.Key, JsonConvert.SerializeObject(item.Value), ttl);
+            }
+
+            throw new ArgumentOutOfRangeException(nameof(_insertMode), _insertMode, "Condition not supported");
         }
 
         public void Set(CacheItem<T> item) => Add(item);
@@ -144,21 +141,18 @@ namespace Eshopworld.Caching.Cosmos
             var documentUri = CreateDocumentURI(key);
             var requestOptions = _usePartitionKey ? new RequestOptions { PartitionKey = new PartitionKey(key) } : null;
 
-            switch (_insertMode)
+            if (_insertMode == CosmosCache.InsertMode.JSON)
             {
-                case CosmosCache.InsertMode.Document:
-                {
-                    var documentResponse = await DocumentClient.ReadDocumentAsync<T>(documentUri, requestOptions).ConfigureAwait(false);
-                    return (documentResponse.StatusCode, documentResponse.Document);
-                }
-                case CosmosCache.InsertMode.JSON:
-                {
-                    var documentResponse = await DocumentClient.ReadDocumentAsync<Envelope>(documentUri, requestOptions).ConfigureAwait(false);
-                    return (documentResponse.StatusCode, JsonConvert.DeserializeObject<T>(documentResponse.Document.Blob));
-                }
-                default:
-                    throw new NotSupportedException($"InsertMode '{_insertMode}' is not supported!");
+                var documentResponse = await DocumentClient.ReadDocumentAsync<Envelope>(documentUri, requestOptions).ConfigureAwait(false);
+                return (documentResponse.StatusCode, JsonConvert.DeserializeObject<T>(documentResponse.Document.Blob));
             }
+            if (_insertMode == CosmosCache.InsertMode.Document)
+            {
+                var documentResponse = await DocumentClient.ReadDocumentAsync<T>(documentUri, requestOptions).ConfigureAwait(false);
+                return (documentResponse.StatusCode, documentResponse.Document);
+            }
+
+            throw new ArgumentOutOfRangeException(nameof(_insertMode), _insertMode, "Condition not supported");
         }
 
         public IEnumerable<KeyValuePair<string, T>> Get(IEnumerable<string> keys) => GetAsync(keys).ConfigureAwait(false).GetAwaiter().GetResult();
@@ -177,7 +171,7 @@ namespace Eshopworld.Caching.Cosmos
                 {
                     foreach (var document in await queryableDocument.ExecuteNextAsync<Document>().ConfigureAwait(false))
                     {
-                        items[document.Id] = ChangeDocumentType<T>(document);
+                        items[document.Id] = ChangeType<T>(document);
                     }
                 }
 
@@ -204,7 +198,7 @@ namespace Eshopworld.Caching.Cosmos
             }
         }
 
-        protected TResult ChangeDocumentType<TResult>(Document document)
+        protected TResult ChangeType<TResult>(Document document)
         {
             var jObject = (JObject)CosmosCache.PropertyBagField.GetValue(document);
 
