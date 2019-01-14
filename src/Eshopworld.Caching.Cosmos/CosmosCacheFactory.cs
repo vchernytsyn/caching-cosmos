@@ -29,8 +29,8 @@ namespace Eshopworld.Caching.Cosmos
 
             DocumentClient = new DocumentClient(cosmosAccountEndpoint, cosmosAccountKey);
         }
-
         public CosmosCacheFactory(Uri cosmosAccountEndpoint, string cosmosAccountKey, string dbName) : this(cosmosAccountEndpoint, cosmosAccountKey, dbName, CosmosCacheFactorySettings.Default){}
+
 
 
         public ICache<T> CreateDefault<T>() => Create<T>(typeof(T).Name);
@@ -65,7 +65,7 @@ namespace Eshopworld.Caching.Cosmos
                 docCol.PartitionKey = new PartitionKeyDefinition() {Paths = new Collection<string>() {"/id"}};
             }
 
-            var dc = DocumentClient.CreateDocumentCollectionIfNotExistsAsync(UriFactory.CreateDatabaseUri(_dbName), docCol, new RequestOptions() { OfferThroughput = _settings.NewCollectionDefaultDTU })
+            var dc = DocumentClient.CreateDocumentCollectionIfNotExistsAsync(UriFactory.CreateDatabaseUri(_dbName), docCol,new RequestOptions() {OfferThroughput = _settings.NewCollectionDefaultDTU})
                                    .ConfigureAwait(false)
                                    .GetAwaiter()
                                    .GetResult();

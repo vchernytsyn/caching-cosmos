@@ -24,7 +24,6 @@ namespace Eshopworld.Caching.Cosmos.Tests
             docDirectCacheFactory = new CosmosCacheFactory(LocalClusterCosmosDb.ConnectionURI, LocalClusterCosmosDb.AccessKey, LocalClusterCosmosDb.DbName, new CosmosCacheFactorySettings() { InsertMode = CosmosCache.InsertMode.Document});
 
             stringCache = (CosmosCache<string>)cacheFactory.Create<string>("string-collection");
-
             _output = output;
         }
 
@@ -483,11 +482,8 @@ namespace Eshopworld.Caching.Cosmos.Tests
         public async Task AddAsync_WithPartitionKeySet_CanReadAndWriteWithPartitionKey()
         {
             // Arrange
-            var cacheFactoryWithPartitionKey = new CosmosCacheFactory(
-                LocalClusterCosmosDb.ConnectionURI, LocalClusterCosmosDb.AccessKey, LocalClusterCosmosDb.DbName,
-                new CosmosCacheFactorySettings { InsertMode = CosmosCache.InsertMode.Document, UseKeyAsPartitionKey = true });
-
-            var partCache = cacheFactoryWithPartitionKey.Create<SimpleObject>($"partition-{typeof(SimpleObject).Name}");
+            var cacheFactory = new CosmosCacheFactory(LocalClusterCosmosDb.ConnectionURI, LocalClusterCosmosDb.AccessKey, LocalClusterCosmosDb.DbName, new CosmosCacheFactorySettings() { InsertMode = CosmosCache.InsertMode.Document,UseKeyAsPartitionKey = true});
+            var partCache = cacheFactory.Create<SimpleObject>($"partition-{typeof(SimpleObject).Name}");
             var value = SimpleObject.Create();
 
             await partCache.AddAsync(new CacheItem<SimpleObject>(CacheKey, value, TimeSpan.MaxValue));
@@ -500,9 +496,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
 
         private static CosmosCache<string> CreateTTLCache(TimeSpan defaultTTL)
         {
-            var cFactory = new CosmosCacheFactory(
-                LocalClusterCosmosDb.ConnectionURI, LocalClusterCosmosDb.AccessKey, LocalClusterCosmosDb.DbName,
-                new CosmosCacheFactorySettings { DefaultTimeToLive = (int)defaultTTL.TotalSeconds });
+            var cFactory = new CosmosCacheFactory(LocalClusterCosmosDb.ConnectionURI, LocalClusterCosmosDb.AccessKey, LocalClusterCosmosDb.DbName, new CosmosCacheFactorySettings() { DefaultTimeToLive = (int)defaultTTL.TotalSeconds });
             return (CosmosCache<string>)cFactory.Create<string>("ttl-string-collection");
         }
 

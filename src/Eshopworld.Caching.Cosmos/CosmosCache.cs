@@ -51,16 +51,16 @@ namespace Eshopworld.Caching.Cosmos
 
         public CosmosCache(Uri documentCollectionUri, DocumentClient documentClient) : this(documentCollectionUri, documentClient, CosmosCache.InsertMode.JSON,false) { }
 
-        public CosmosCache(Uri documentCollectionUri, DocumentClient documentClient, CosmosCache.InsertMode insertMode, bool usePartitionKey)
+        public CosmosCache(Uri documentCollectionUri, DocumentClient documentClient, CosmosCache.InsertMode _insertMode, bool usePartitionKey)
         {
             _documentCollectionUri = documentCollectionUri ?? throw new ArgumentNullException(nameof(documentCollectionUri));
             DocumentClient = documentClient ?? throw new ArgumentNullException(nameof(documentClient));
-            _insertMode = insertMode;
-            _usePartitionKey = usePartitionKey;
+            this._insertMode = _insertMode;
+            this._usePartitionKey = usePartitionKey;
         }
 
         public T Add(CacheItem<T> item) => AddAsync(item).ConfigureAwait(false).GetAwaiter().GetResult();
-
+        
         public async Task<T> AddAsync(CacheItem<T> item)
         {
             if (item == null)
