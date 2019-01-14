@@ -90,12 +90,14 @@ namespace Eshopworld.Caching.Cosmos
 
                 return doc;
             }
-            if (_insertMode == CosmosCache.InsertMode.JSON)
+            else if (_insertMode == CosmosCache.InsertMode.JSON)
             {
                 return new Envelope(item.Key, JsonConvert.SerializeObject(item.Value), ttl);
             }
-
-            throw new ArgumentOutOfRangeException(nameof(_insertMode), _insertMode, "Condition not supported");
+            else
+            {
+                throw new ArgumentOutOfRangeException(nameof(_insertMode), _insertMode, "Condition not supported");
+            }
         }
 
         public void Set(CacheItem<T> item) => Add(item);
@@ -144,13 +146,15 @@ namespace Eshopworld.Caching.Cosmos
                 var documentResponse = await DocumentClient.ReadDocumentAsync<Envelope>(documentUri, requestOptions).ConfigureAwait(false);
                 return (documentResponse.StatusCode, JsonConvert.DeserializeObject<T>(documentResponse.Document.Blob));
             }
-            if (_insertMode == CosmosCache.InsertMode.Document)
+            else if (_insertMode == CosmosCache.InsertMode.Document)
             {
                 var documentResponse = await DocumentClient.ReadDocumentAsync<T>(documentUri, requestOptions).ConfigureAwait(false);
                 return (documentResponse.StatusCode, documentResponse.Document);
             }
-
-            throw new ArgumentOutOfRangeException(nameof(_insertMode), _insertMode, "Condition not supported");
+            else
+            {
+                throw new ArgumentOutOfRangeException(nameof(_insertMode), _insertMode, "Condition not supported");
+            }
         }
 
         public IEnumerable<KeyValuePair<string, T>> Get(IEnumerable<string> keys) => GetAsync(keys).ConfigureAwait(false).GetAwaiter().GetResult();
@@ -158,15 +162,15 @@ namespace Eshopworld.Caching.Cosmos
         {
             if (keys == null) throw new ArgumentNullException(nameof(keys));
 
-            using (var queryableDocument = DocumentClient.CreateDocumentQuery<Document>(_documentCollectionUri)
+            using (var queryable = DocumentClient.CreateDocumentQuery<Document>(_documentCollectionUri)
                 .Where(e => keys.Contains(e.Id))
                 .AsDocumentQuery())
             {
                 var items = new Dictionary<string, T>();
 
-                while (queryableDocument.HasMoreResults)
+                while (queryable.HasMoreResults)
                 {
-                    foreach (var document in await queryableDocument.ExecuteNextAsync<Document>().ConfigureAwait(false))
+                    foreach (var document in await queryable.ExecuteNextAsync<Document>().ConfigureAwait(false))
                     {
                         items[document.Id] = ChangeType<T>(document);
                     }

@@ -370,8 +370,8 @@ namespace Eshopworld.Caching.Cosmos.Tests
             var cache = cacheFactory.CreateDefault<SimpleObject>();
 
             Enumerable.Range(0, numberOfItems)
-                .Select(i => (key: "item-" + i, value: SimpleObject.Create()))
-                .All(_ => { cache.Set(new CacheItem<SimpleObject>(_.key, _.value, TimeSpan.FromSeconds(5))); return true; });
+                .Select(i => Tuple.Create("item-" + i, SimpleObject.Create()))
+                .All(_ => { cache.Set(new CacheItem<SimpleObject>(_.Item1, _.Item2, TimeSpan.FromSeconds(5))); return true; });
 
             // Act
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
@@ -497,7 +497,7 @@ namespace Eshopworld.Caching.Cosmos.Tests
         private static CosmosCache<string> CreateTTLCache(TimeSpan defaultTTL)
         {
             var cFactory = new CosmosCacheFactory(LocalClusterCosmosDb.ConnectionURI, LocalClusterCosmosDb.AccessKey, LocalClusterCosmosDb.DbName, new CosmosCacheFactorySettings() { DefaultTimeToLive = (int)defaultTTL.TotalSeconds });
-            return (CosmosCache<string>)cFactory.Create<string>("ttl-string-collection");
+            return  (CosmosCache<string>)cFactory.Create<string>("ttl-string-collection");
         }
 
         private CosmosCache<T> CreateCache<T>(CosmosCache.InsertMode mode, string cacheName = null)
