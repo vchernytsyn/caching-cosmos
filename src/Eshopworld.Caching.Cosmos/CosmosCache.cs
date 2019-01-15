@@ -10,6 +10,7 @@ using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Document = Microsoft.Azure.Documents.Document;
 
 namespace Eshopworld.Caching.Cosmos
 {
@@ -17,34 +18,43 @@ namespace Eshopworld.Caching.Cosmos
     {
         public enum InsertMode
         {
+            /// <summary>
+            /// Persist data as Envelop object with JSON model represented as a string property.
+            /// </summary>
             JSON,
-            Document,
+
+            /// <summary>
+            /// Persists data as pure JSON model.
+            /// </summary>
+            Document
         }
+
+        internal static readonly FieldInfo PropertyBagField = typeof(Document).GetField("propertyBag", BindingFlags.Instance | BindingFlags.NonPublic);
     }
 
     /// <summary>
     /// 
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    /// <remarks>Warning: As the cosmos SDK doesnt provide sync methods, all non async methods call their async counterparts and just GetResult().</remarks>
+    /// <remarks>Warning: As the cosmos SDK doesn't provide sync methods, all non async methods call their async counterparts and just GetResult().</remarks>
     public class CosmosCache<T> : IDistributedCache<T>
     {
-        private static readonly FieldInfo propertyBagField = typeof(Document).GetField("propertyBag", BindingFlags.Instance | BindingFlags.NonPublic);
-
-        private readonly DocumentClient _documentClient;
         private readonly Uri _documentCollectionUri;
-        private readonly bool _usePartitionKey = false;
+        private readonly bool _usePartitionKey;
 
-        private readonly CosmosCache.InsertMode _insertMode = CosmosCache.InsertMode.JSON;
+        private readonly CosmosCache.InsertMode _insertMode;
 
-        public DocumentClient Database => _documentClient;
+        [Obsolete("Please use property DocumentClient instead Database.")]
+        public DocumentClient Database => DocumentClient;
+
+        public DocumentClient DocumentClient { get; }
 
         public CosmosCache(Uri documentCollectionUri, DocumentClient documentClient) : this(documentCollectionUri, documentClient, CosmosCache.InsertMode.JSON,false) { }
 
-        public CosmosCache(Uri documentCollectionUri, DocumentClient documentClient, CosmosCache.InsertMode _insertMode,bool usePartitionKey)
+        public CosmosCache(Uri documentCollectionUri, DocumentClient documentClient, CosmosCache.InsertMode _insertMode, bool usePartitionKey)
         {
             _documentCollectionUri = documentCollectionUri ?? throw new ArgumentNullException(nameof(documentCollectionUri));
-            _documentClient = documentClient ?? throw new ArgumentNullException(nameof(documentClient));
+            DocumentClient = documentClient ?? throw new ArgumentNullException(nameof(documentClient));
             this._insertMode = _insertMode;
             this._usePartitionKey = usePartitionKey;
         }
@@ -53,10 +63,11 @@ namespace Eshopworld.Caching.Cosmos
         
         public async Task<T> AddAsync(CacheItem<T> item)
         {
-            if (item == null) throw new ArgumentNullException(nameof(item));
+            if (item == null)
+                throw new ArgumentNullException(nameof(item));
 
             var requestOptions = _usePartitionKey ? new RequestOptions() { PartitionKey = new PartitionKey(item.Key) } : null;
-            var docResponse = await _documentClient.UpsertDocumentAsync(_documentCollectionUri, CreateDocument(item), requestOptions).ConfigureAwait(false);
+            var docResponse = await DocumentClient.UpsertDocumentAsync(_documentCollectionUri, CreateDocument(item), requestOptions).ConfigureAwait(false);
 
             if (!(docResponse.StatusCode == HttpStatusCode.Created || docResponse.StatusCode == HttpStatusCode.OK))
             {
@@ -68,13 +79,12 @@ namespace Eshopworld.Caching.Cosmos
 
         private object CreateDocument(CacheItem<T> item)
         {
-            var doc = new Document();
             var ttl = item.Duration != TimeSpan.MaxValue ? (int?)item.Duration.TotalSeconds : null;
-            
-            
+
             if (_insertMode == CosmosCache.InsertMode.Document)
             {
-                propertyBagField.SetValue(doc, JObject.FromObject(item.Value)); // todo: there has to be a better way to do this. its either this, or call the internal 'FromObject' method..
+                var doc = new Document();
+                CosmosCache.PropertyBagField.SetValue(doc, JObject.FromObject(item.Value)); // todo: there has to be a better way to do this. its either this, or call the internal 'FromObject' method..
                 doc.Id = item.Key;
                 doc.TimeToLive = ttl;
 
@@ -90,24 +100,23 @@ namespace Eshopworld.Caching.Cosmos
             }
         }
 
-
         public void Set(CacheItem<T> item) => Add(item);
         public Task SetAsync(CacheItem<T> item) => AddAsync(item);
 
 
         public bool Exists(string key) => GetResult(key).HasValue;
-        public async Task<bool> ExistsAsync(string key) => (await GetResultAsync(key)).HasValue;
+        public async Task<bool> ExistsAsync(string key) => (await GetResultAsync(key).ConfigureAwait(false)).HasValue;
 
         public bool KeyExpire(string key, TimeSpan? expiry) => false;
         public Task<bool> KeyExpireAsync(string key, TimeSpan? expiry) => Task.FromResult(false);
 
         public void Remove(string key) => RemoveAsync(key).GetAwaiter().GetResult();
-        public Task RemoveAsync(string key) => _documentClient.DeleteDocumentAsync(CreateDocumentURI(key));
+        public Task RemoveAsync(string key) => DocumentClient.DeleteDocumentAsync(CreateDocumentURI(key));
 
-        public async Task<T> GetAsync(string key) => (await GetResultAsync(key)).Value;
+        public async Task<T> GetAsync(string key) => (await GetResultAsync(key).ConfigureAwait(false)).Value;
         public T Get(string key) => GetResult(key).Value;
 
-        public CacheResult<T> GetResult(string key) => GetResultAsync(key).GetAwaiter().GetResult();
+        public CacheResult<T> GetResult(string key) => GetResultAsync(key).ConfigureAwait(false).GetAwaiter().GetResult();
 
         public async Task<CacheResult<T>> GetResultAsync(string key)
         {
@@ -115,7 +124,7 @@ namespace Eshopworld.Caching.Cosmos
 
             try
             {
-                var pair = await GetDocument(key);
+                var pair = await GetDocument(key).ConfigureAwait(false);
 
                 return pair.statusCode != HttpStatusCode.OK
                     ? CacheResult<T>.Miss()
@@ -127,20 +136,19 @@ namespace Eshopworld.Caching.Cosmos
             }
         }
 
-        private async Task<(HttpStatusCode statusCode, T body)> GetDocument(string key)
+        protected virtual async Task<(HttpStatusCode statusCode, T body)> GetDocument(string key)
         {
             var documentUri = CreateDocumentURI(key);
             var requestOptions = _usePartitionKey ? new RequestOptions() { PartitionKey = new PartitionKey(key) } : null;
 
             if (_insertMode == CosmosCache.InsertMode.JSON)
             {
-                var documentResponse = await _documentClient.ReadDocumentAsync<Envelope>(documentUri, requestOptions).ConfigureAwait(false);
-
+                var documentResponse = await DocumentClient.ReadDocumentAsync<Envelope>(documentUri, requestOptions).ConfigureAwait(false);
                 return (documentResponse.StatusCode, JsonConvert.DeserializeObject<T>(documentResponse.Document.Blob));
             }
             else if (_insertMode == CosmosCache.InsertMode.Document)
             {
-                var documentResponse = await _documentClient.ReadDocumentAsync<T>(documentUri, requestOptions).ConfigureAwait(false);
+                var documentResponse = await DocumentClient.ReadDocumentAsync<T>(documentUri, requestOptions).ConfigureAwait(false);
                 return (documentResponse.StatusCode, documentResponse.Document);
             }
             else
@@ -154,17 +162,17 @@ namespace Eshopworld.Caching.Cosmos
         {
             if (keys == null) throw new ArgumentNullException(nameof(keys));
 
-            using (var queryable = _documentClient.CreateDocumentQuery<Envelope>(_documentCollectionUri)
-                .Where(e => keys.Contains(e.id))
+            using (var queryable = DocumentClient.CreateDocumentQuery<Document>(_documentCollectionUri)
+                .Where(e => keys.Contains(e.Id))
                 .AsDocumentQuery())
             {
                 var items = new Dictionary<string, T>();
 
                 while (queryable.HasMoreResults)
                 {
-                    foreach(var e in await queryable.ExecuteNextAsync<Envelope>())
+                    foreach (var document in await queryable.ExecuteNextAsync<Document>().ConfigureAwait(false))
                     {
-                        items[e.id] = (T) (object) e;
+                        items[document.Id] = ChangeType<T>(document);
                     }
                 }
 
@@ -172,12 +180,11 @@ namespace Eshopworld.Caching.Cosmos
             }
         }
 
-
         public Uri CreateDocumentURI(string key) => new Uri($"{_documentCollectionUri}/docs/{Uri.EscapeUriString(key)}", UriKind.Relative);
 
-        class Envelope
+        protected class Envelope
         {
-            public string id { get; } // do not uppercase this, ddb requires it lower so the document id matches the preorder code
+            public string id { get; } // do not uppercase this, db requires it lower so the document id matches the preorder code
             public string Blob { get; }
 
             // used to set expiration policy
@@ -190,6 +197,17 @@ namespace Eshopworld.Caching.Cosmos
                 this.Blob = blob;
                 TimeToLive = expiry;
             }
+        }
+
+        protected TResult ChangeType<TResult>(Document document)
+        {
+            var jObject = (JObject)CosmosCache.PropertyBagField.GetValue(document);
+
+            var result = jObject.ContainsKey(nameof(Envelope.Blob))
+                ? JsonConvert.DeserializeObject<TResult>(jObject[nameof(Envelope.Blob)].ToString())
+                : jObject.ToObject<TResult>();
+
+            return result;
         }
     }
 }

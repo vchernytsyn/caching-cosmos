@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Eshopworld.Caching.Core;
 using Microsoft.Azure.Documents;
@@ -43,7 +42,12 @@ namespace Eshopworld.Caching.Cosmos
 
             var documentCollectionURI = documentCollectionURILookup.GetOrAdd(name, TryCreateCollection);
 
-            return new CosmosCache<T>(documentCollectionURI, DocumentClient, _settings.InsertMode,_settings.UseKeyAsPartitionKey);
+            return BuildCacheInstance<T>(documentCollectionURI);
+        }
+
+        protected virtual ICache<T> BuildCacheInstance<T>(Uri documentCollectionUri)
+        {
+            return new CosmosCache<T>(documentCollectionUri, DocumentClient, _settings.InsertMode, _settings.UseKeyAsPartitionKey);
         }
 
         private Uri TryCreateCollection(string name)
