@@ -1,7 +1,5 @@
 ﻿using System;
 using Eshopworld.Tests.Core;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
 using Xunit;
 
 namespace Eshopworld.Caching.Cosmos.Tests
